@@ -1,0 +1,33 @@
+# Orchestration
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-groq>=0.2.0
+langchain-google-genai>=2.0.0
+langchain-community>=0.3.0
+
+# LLM Providers (free tiers)
+groq>=0.11.0
+google-generativeai>=0.8.0
+
+# Financial Data
+yfinance>=0.2.40
+pandas-ta>=0.3.14b
+sec-edgar-downloader>=5.0.0
+
+# News & Sentiment
+newsapi-python>=0.2.7
+
+# Memory / Vector Store
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+
+# API Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# Utilities
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+numpy>=1.26.0
+pandas>=2.1.0
+requests>=2.31.0

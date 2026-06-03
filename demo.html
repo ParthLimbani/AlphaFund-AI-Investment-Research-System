@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Hedge Fund — Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #0c0c0e;
+    --bg-card:    #141417;
+    --bg-muted:   #1a1a1f;
+    --border:     rgba(255,255,255,0.08);
+    --border-mid: rgba(255,255,255,0.13);
+    --fg:         #e8e8ec;
+    --fg-muted:   #6b6b7a;
+    --fg-dim:     #3a3a46;
+    --green:      #34d399;
+    --green-bg:   rgba(52,211,153,0.08);
+    --green-bdr:  rgba(52,211,153,0.35);
+    --red:        #f87171;
+    --red-bg:     rgba(248,113,113,0.08);
+    --red-bdr:    rgba(248,113,113,0.35);
+    --amber:      #fbbf24;
+    --amber-bg:   rgba(251,191,36,0.08);
+    --amber-bdr:  rgba(251,191,36,0.35);
+    --blue:       #60a5fa;
+    --blue-bg:    rgba(96,165,250,0.12);
+    --radius:     8px;
+    --radius-lg:  12px;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.5; }
+
+  /* ── NAV ── */
+  nav {
+    display: flex; align-items: center; padding: 12px 24px;
+    border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    background: rgba(12,12,14,0.92); backdrop-filter: blur(8px); z-index: 100;
+  }
+  .nav-brand { font-weight: 700; font-size: 12px; letter-spacing: .12em; color: var(--fg); text-transform: uppercase; }
+  .nav-links { margin-left: auto; display: flex; gap: 24px; }
+  .nav-link { font-size: 13px; color: var(--fg-muted); cursor: pointer; transition: color .15s; }
+  .nav-link:hover, .nav-link.active { color: var(--fg); }
+
+  /* ── PAGES ── */
+  .page { display: none; animation: fadeUp .3s ease; }
+  .page.active { display: flex; flex-direction: column; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  /* ── HOME ── */
+  #page-home { flex:1; align-items:center; justify-content:center; gap:32px; padding:40px 16px; min-height:calc(100vh - 49px); }
+  .home-title { font-size: 36px; font-weight: 800; letter-spacing: -.02em; text-align:center; }
+  .home-sub { color: var(--fg-muted); font-size: 15px; text-align: center; }
+  .search-row { display:flex; gap:8px; width:100%; max-width:480px; }
+  .search-input {
+    flex:1; background: var(--bg-card); border: 1px solid var(--border-mid);
+    border-radius: var(--radius); padding: 12px 16px; font-size: 17px;
+    font-family: 'SF Mono', 'Consolas', monospace; letter-spacing:.08em;
+    color: var(--fg); outline: none; transition: border-color .15s;
+  }
+  .search-input:focus { border-color: rgba(255,255,255,0.3); }
+  .search-input::placeholder { color: var(--fg-dim); }
+  .btn-primary {
+    padding: 12px 20px; background: var(--fg); color: var(--bg);
+    border: none; border-radius: var(--radius); font-weight: 600;
+    font-size: 14px; cursor: pointer; transition: opacity .15s; white-space: nowrap;
+  }
+  .btn-primary:hover { opacity: .85; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .chip {
+    padding: 6px 14px; border: 1px solid var(--border-mid); border-radius: 6px;
+    font-family: 'SF Mono','Consolas',monospace; font-size:12px; color:var(--fg-muted);
+    cursor:pointer; transition: color .15s, border-color .15s;
+  }
+  .chip:hover { color:var(--fg); border-color: rgba(255,255,255,0.25); }
+  .powered { font-size: 11px; color: var(--fg-dim); text-align:center; max-width:340px; }
+
+  /* ── ANALYZE PAGE ── */
+  #page-analyze { padding: 32px 16px; align-items:center; gap:24px; }
+  .analyze-inner { width:100%; max-width:760px; display:flex; flex-direction:column; gap:24px; }
+  .analyze-header { display:flex; align-items:center; justify-content:space-between; }
+  .analyze-ticker { font-size: 24px; font-weight: 800; font-family:monospace; }
+  .analyze-status { font-size:12px; color:var(--fg-muted); margin-top:2px; }
+  .running-pill { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--blue); }
+  .pulse-dot { width:7px; height:7px; border-radius:50%; background:var(--blue); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+
+  /* ── TIMELINE ── */
+  .timeline-label { font-size:11px; font-weight:600; color:var(--fg-muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .timeline { display:flex; flex-direction:column; gap:4px; }
+  .trow { display:flex; gap:4px; }
+  .tnode {
+    flex:1; min-width:0; border-radius:6px; border:1px solid var(--border);
+    background: var(--bg-card); padding:7px 10px; transition: all .3s;
+  }
+  .tnode.done  { border-color: var(--green-bdr); background: var(--green-bg); }
+  .tnode.running { border-color: rgba(96,165,250,.5); background: var(--blue-bg); animation: nodePulse 1.4s infinite; }
+  @keyframes nodePulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+  .tnode-top { display:flex; align-items:center; gap:6px; }
+  .tnode-dot { width:7px; height:7px; border-radius:50%; background: var(--fg-dim); flex-shrink:0; }
+  .tnode.done .tnode-dot { background: var(--green); }
+  .tnode.running .tnode-dot { background: var(--blue); animation: pulse 1.2s infinite; }
+  .tnode-name { font-size:11px; font-weight:500; color:var(--fg-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tnode.done .tnode-name { color: var(--green); }
+  .tnode.running .tnode-name { color: var(--blue); }
+  .tnode-summary { font-size:10px; color:var(--fg-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.7; }
+
+  /* ── VERDICT ── */
+  #verdict-card { display:none; }
+  #verdict-card.show {
+    display:block; border-radius: var(--radius-lg); border-width:2px; border-style:solid;
+    padding:24px; animation: fadeUp .5s ease;
+  }
+  #verdict-card.BUY  { border-color: var(--green-bdr); background: var(--green-bg); box-shadow: 0 0 40px rgba(52,211,153,.06); }
+  #verdict-card.HOLD { border-color: var(--amber-bdr); background: var(--amber-bg); box-shadow: 0 0 40px rgba(251,191,36,.06); }
+  #verdict-card.SELL { border-color: var(--red-bdr);   background: var(--red-bg);   box-shadow: 0 0 40px rgba(248,113,113,.06); }
+  .verdict-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .verdict-left { display:flex; align-items:center; gap:20px; }
+  .verdict-action { font-size:48px; font-weight:900; letter-spacing:-.02em; line-height:1; }
+  .BUY  .verdict-action { color: var(--green); }
+  .HOLD .verdict-action { color: var(--amber); }
+  .SELL .verdict-action { color: var(--red); }
+  .verdict-conf-label { font-size:10px; color:var(--fg-muted); }
+  .verdict-conf-val { font-size:24px; font-weight:700; }
+  .BUY  .verdict-conf-val { color: var(--green); }
+  .HOLD .verdict-conf-val { color: var(--amber); }
+  .SELL .verdict-conf-val { color: var(--red); }
+  .verdict-right { text-align:right; }
+  .verdict-ticker { font-family:monospace; font-size:20px; font-weight:700; }
+  .verdict-horizon { font-size:11px; color:var(--fg-muted); margin-top:2px; text-transform:capitalize; }
+  .verdict-target { font-size:11px; color:var(--fg-muted); margin-top:2px; }
+  .conf-bar-wrap { height:5px; background:rgba(255,255,255,.07); border-radius:99px; margin-bottom:16px; overflow:hidden; }
+  .conf-bar { height:100%; border-radius:99px; transition: width 1.2s ease; width:0; }
+  .BUY  .conf-bar { background: var(--green); }
+  .HOLD .conf-bar { background: var(--amber); }
+  .SELL .conf-bar { background: var(--red); }
+  .verdict-explanation { font-size:13px; color:rgba(232,232,236,.8); line-height:1.6; margin-bottom:16px; }
+  .verdict-cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .verdict-col-title { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .BUY  .verdict-col-title.why  { color: rgba(52,211,153,.7); }
+  .HOLD .verdict-col-title.why  { color: rgba(251,191,36,.7); }
+  .SELL .verdict-col-title.why  { color: rgba(248,113,113,.7); }
+  .verdict-col-title.risks { color: rgba(248,113,113,.7); }
+  .verdict-col ul { list-style:none; display:flex; flex-direction:column; gap:4px; }
+  .verdict-col li { font-size:11px; color:var(--fg-muted); display:flex; gap:6px; }
+  .verdict-col li::before { content:'•'; flex-shrink:0; margin-top:1px; }
+  .BUY  .verdict-col.why li::before { color: var(--green); }
+  .HOLD .verdict-col.why li::before { color: var(--amber); }
+  .SELL .verdict-col.why li::before { color: var(--red); }
+  .verdict-col.risks li::before { color: var(--red); }
+
+  /* ── TABS ── */
+  .tabs-wrap { display:none; }
+  .tabs-wrap.show { display:block; animation: fadeUp .4s ease; }
+  .tabs-nav { display:flex; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding:3px; gap:2px; margin-bottom:16px; }
+  .tab-btn {
+    flex:1; padding:7px 12px; border:none; background:transparent;
+    border-radius:6px; font-size:12px; font-weight:500; color:var(--fg-muted);
+    cursor:pointer; transition: all .15s;
+  }
+  .tab-btn.active { background: var(--bg-muted); color:var(--fg); }
+  .tab-pane { display:none; }
+  .tab-pane.active { display:block; animation: fadeUp .25s ease; }
+
+  /* ── DEBATE ── */
+  .debate-judge-banner {
+    border-radius: var(--radius); border:1px solid; padding:12px 16px; margin-bottom:12px; font-size:12px;
+  }
+  .debate-judge-banner.bull { border-color: var(--green-bdr); background: var(--green-bg); color: var(--green); }
+  .debate-judge-banner.bear { border-color: var(--red-bdr);   background: var(--red-bg);   color: var(--red); }
+  .judge-title { font-weight:700; margin-bottom:4px; }
+  .judge-reasoning { font-size:11px; opacity:.75; }
+  .judge-args { margin-top:8px; display:flex; flex-direction:column; gap:2px; }
+  .judge-args span { font-size:11px; opacity:.65; }
+  .round-block { border:1px solid var(--border); border-radius: var(--radius); overflow:hidden; margin-bottom:8px; }
+  .round-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; background: var(--bg-card); cursor:pointer;
+    font-size:12px; font-weight:600; transition: background .15s;
+  }
+  .round-header:hover { background: var(--bg-muted); }
+  .round-chevron { color: var(--fg-muted); font-size:10px; }
+  .round-body { display:none; border-top:1px solid var(--border); }
+  .round-body.open { display:grid; grid-template-columns:1fr 1fr; }
+  .round-col { padding:14px; }
+  .round-col:first-child { border-right:1px solid var(--border); }
+  .round-col-title { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .round-col-title.bull-title { color: rgba(52,211,153,.7); }
+  .round-col-title.bear-title { color: rgba(248,113,113,.7); }
+  .round-col p { font-size:11px; color:var(--fg-muted); line-height:1.65; white-space:pre-wrap; }
+
+  /* ── RESEARCH TABS ── */
+  .research-nav { display:flex; gap:2px; background: var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:3px; margin-bottom:14px; }
+  .research-tab-btn {
+    flex:1; padding:5px 8px; border:none; background:transparent;
+    border-radius:5px; font-size:11px; font-weight:500; color:var(--fg-muted);
+    cursor:pointer; transition:all .15s;
+  }
+  .research-tab-btn.active { background:var(--bg-muted); color:var(--fg); }
+  .research-pane { display:none; }
+  .research-pane.active { display:block; animation: fadeUp .2s ease; }
+  .signal-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .signal-chip {
+    padding:3px 10px; border-radius:4px; border:1px solid; font-size:11px; font-weight:500;
+  }
+  .signal-chip.green { border-color:var(--green-bdr); background:var(--green-bg); color:var(--green); }
+  .signal-chip.red   { border-color:var(--red-bdr);   background:var(--red-bg);   color:var(--red); }
+  .signal-chip.amber { border-color:var(--amber-bdr); background:var(--amber-bg); color:var(--amber); }
+  .signal-chip.neutral { border-color:var(--border-mid); background:var(--bg-muted); color:var(--fg-muted); }
+  .data-rows { display:flex; flex-direction:column; }
+  .data-row { display:flex; gap:12px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+  .data-row:last-child { border-bottom:none; }
+  .data-label { font-size:11px; color:var(--fg-muted); width:140px; flex-shrink:0; }
+  .data-val   { font-size:11px; color:var(--fg); }
+
+  /* ── RISK ── */
+  .risk-gauge-wrap { border:1px solid var(--border); border-radius:var(--radius); padding:16px; background:var(--bg-card); margin-bottom:12px; }
+  .risk-gauge-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .risk-gauge-label { font-size:11px; color:var(--fg-muted); text-transform:uppercase; letter-spacing:.08em; }
+  .risk-level-text { font-size:13px; font-weight:700; text-transform:capitalize; }
+  .risk-level-text.low      { color: var(--green); }
+  .risk-level-text.moderate { color: var(--amber); }
+  .risk-level-text.high     { color: #fb923c; }
+  .risk-level-text.extreme  { color: var(--red); }
+  .risk-bar-track { height:7px; background:rgba(255,255,255,.06); border-radius:99px; overflow:hidden; }
+  .risk-bar-fill { height:100%; border-radius:99px; transition:width 1s ease; }
+  .risk-bar-fill.low      { background: var(--green); width:25%; }
+  .risk-bar-fill.moderate { background: var(--amber); width:55%; }
+  .risk-bar-fill.high     { background: #fb923c;      width:78%; }
+  .risk-bar-fill.extreme  { background: var(--red);   width:100%; }
+  .risk-scale { display:flex; justify-content:space-between; font-size:9px; color:var(--fg-dim); margin-top:4px; }
+  .risk-flags { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+  .risk-flag-card { border-radius:var(--radius); border:1px solid; padding:10px; text-align:center; }
+  .risk-flag-card.ok   { border-color:var(--green-bdr); background:var(--green-bg); }
+  .risk-flag-card.warn { border-color:var(--red-bdr);   background:var(--red-bg); }
+  .risk-flag-icon { font-size:18px; margin-bottom:4px; }
+  .risk-flag-card.ok   .risk-flag-icon { color:var(--green); }
+  .risk-flag-card.warn .risk-flag-icon { color:var(--red); }
+  .risk-flag-name { font-size:10px; color:var(--fg-muted); }
+  .risk-section-title { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--fg-muted); margin-bottom:8px; margin-top:12px; }
+  .risk-list { display:flex; flex-direction:column; gap:4px; }
+  .risk-list-item { font-size:11px; color:var(--fg-muted); display:flex; gap:6px; }
+  .risk-list-item .icon { flex-shrink:0; }
+  .risk-position-box { border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; font-size:11px; color:var(--fg-muted); background:var(--bg-muted); margin-top:12px; }
+  .risk-position-box strong { color:var(--fg); }
+  .risk-summary-text { font-size:11px; color:var(--fg-muted); font-style:italic; margin-top:10px; }
+
+  /* ── HISTORY PAGE ── */
+  #page-history { padding:32px 16px; align-items:center; }
+  .page-inner { width:100%; max-width:760px; }
+  .page-title { font-size:20px; font-weight:700; margin-bottom:20px; }
+  .hist-table-wrap { border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+  .hist-table { width:100%; border-collapse:collapse; }
+  .hist-table th { text-align:left; padding:10px 16px; font-size:11px; color:var(--fg-muted); font-weight:600; letter-spacing:.06em; text-transform:uppercase; background:rgba(255,255,255,.025); border-bottom:1px solid var(--border); }
+  .hist-table td { padding:11px 16px; font-size:12px; border-bottom:1px solid rgba(255,255,255,.04); }
+  .hist-table tr:last-child td { border-bottom:none; }
+  .hist-table tr:hover td { background: rgba(255,255,255,.015); }
+  .hist-ticker { font-family:monospace; font-weight:700; color:var(--fg); cursor:pointer; }
+  .hist-ticker:hover { text-decoration:underline; }
+  .action-badge { font-size:11px; font-weight:700; }
+  .action-badge.BUY  { color:var(--green); }
+  .action-badge.HOLD { color:var(--amber); }
+  .action-badge.SELL { color:var(--red); }
+  .hist-muted { color:var(--fg-muted); }
+
+  /* ── MEMORY PAGE ── */
+  #page-memory { padding:32px 16px; align-items:center; }
+  .memory-sub { font-size:11px; color:var(--fg-muted); margin-top:4px; margin-bottom:20px; }
+  .belief-card { border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-card); padding:14px 16px; margin-bottom:8px; }
+  .belief-top { display:flex; justify-content:space-between; gap:12px; }
+  .belief-text { font-size:12px; color:var(--fg); line-height:1.55; }
+  .belief-ticker-badge { font-family:monospace; font-size:10px; color:var(--fg-dim); flex-shrink:0; }
+  .belief-meta { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+  .belief-agent-tag { font-size:9px; padding:2px 7px; border:1px solid var(--border); border-radius:4px; color:var(--fg-dim); }
+  .belief-date { font-size:10px; color:var(--fg-dim); margin-left:auto; }
+
+  /* ── UTIL ── */
+  .section-header { font-size:11px; font-weight:600; color:var(--fg-muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .empty-state { font-size:13px; color:var(--fg-muted); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">AI Hedge Fund</div>
+  <div class="nav-links">
+    <span class="nav-link active" onclick="showPage('home')">Analyze</span>
+    <span class="nav-link" onclick="showPage('history')">History</span>
+    <span class="nav-link" onclick="showPage('memory')">Memory</span>
+  </div>
+</nav>
+
+<!-- ════════════════════ HOME PAGE ════════════════════ -->
+<div id="page-home" class="page active">
+  <h1 class="home-title">AI Hedge Fund</h1>
+  <p class="home-sub">Multi-agent analysis · Bull vs Bear debate · CVaR risk control</p>
+  <div class="search-row">
+    <input id="ticker-input" class="search-input" placeholder="Enter ticker — e.g. NVDA" maxlength="8"
+      oninput="this.value=this.value.toUpperCase()"
+      onkeydown="if(event.key==='Enter') startAnalysis(this.value)" />
+    <button class="btn-primary" onclick="startAnalysis(document.getElementById('ticker-input').value)">Analyze</button>
+  </div>
+  <div class="chips">
+    <div class="chip" onclick="startAnalysis('NVDA')">NVDA</div>
+    <div class="chip" onclick="startAnalysis('AAPL')">AAPL</div>
+    <div class="chip" onclick="startAnalysis('TSLA')">TSLA</div>
+    <div class="chip" onclick="startAnalysis('MSFT')">MSFT</div>
+    <div class="chip" onclick="startAnalysis('GOOG')">GOOG</div>
+    <div class="chip" onclick="startAnalysis('AMZN')">AMZN</div>
+    <div class="chip" onclick="startAnalysis('META')">META</div>
+  </div>
+  <p class="powered">Powered by LangGraph · Llama 3.3 70B · FINCON + D3 research architecture</p>
+</div>
+
+<!-- ════════════════════ ANALYZE PAGE ════════════════════ -->
+<div id="page-analyze" class="page">
+  <div class="analyze-inner">
+
+    <!-- Header -->
+    <div class="analyze-header">
+      <div>
+        <div id="analyze-ticker" class="analyze-ticker">NVDA</div>
+        <div id="analyze-status" class="analyze-status">Analysis in progress…</div>
+      </div>
+      <div id="running-pill" class="running-pill">
+        <span class="pulse-dot"></span> Running
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div>
+      <div class="timeline-label">Agent Pipeline</div>
+      <div class="timeline" id="timeline">
+        <div class="trow">
+          <div class="tnode" id="tnode-supervisor">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Supervisor</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-fundamental">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Fundamental</span></div>
+          </div>
+          <div class="tnode" id="tnode-technical">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Technical</span></div>
+          </div>
+          <div class="tnode" id="tnode-sentiment">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Sentiment</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-synthesizer">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Research Synthesizer</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-bull_round1">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Bull</span></div>
+          </div>
+          <div class="tnode" id="tnode-bear_round1">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Bear</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-bull_rebuttal">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Bull Rebuttal</span></div>
+          </div>
+          <div class="tnode" id="tnode-bear_rebuttal">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Bear Rebuttal</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-deliberation">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Deliberation</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-debate_judge">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Debate Judge</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-risk_manager">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Risk Manager</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-final_decision">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Final Decision</span></div>
+          </div>
+        </div>
+        <div class="trow">
+          <div class="tnode" id="tnode-reflection">
+            <div class="tnode-top"><span class="tnode-dot"></span><span class="tnode-name">Memory &amp; Reflection</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verdict Card -->
+    <div id="verdict-card">
+      <div class="verdict-top">
+        <div class="verdict-left">
+          <div class="verdict-action" id="vc-action">BUY</div>
+          <div>
+            <div class="verdict-conf-label">Confidence</div>
+            <div class="verdict-conf-val" id="vc-conf">87%</div>
+          </div>
+        </div>
+        <div class="verdict-right">
+          <div class="verdict-ticker" id="vc-ticker">NVDA</div>
+          <div class="verdict-horizon" id="vc-horizon">Long term</div>
+          <div class="verdict-target" id="vc-target">Target: $160–185 / 12 mo</div>
+        </div>
+      </div>
+      <div class="conf-bar-wrap"><div class="conf-bar" id="vc-bar"></div></div>
+      <p class="verdict-explanation" id="vc-explanation"></p>
+      <div class="verdict-cols">
+        <div class="verdict-col why">
+          <div class="verdict-col-title why">Why</div>
+          <ul id="vc-reasons"></ul>
+        </div>
+        <div class="verdict-col risks">
+          <div class="verdict-col-title risks">Risks</div>
+          <ul id="vc-risks"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail Tabs -->
+    <div id="detail-tabs" class="tabs-wrap">
+      <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('debate')">Debate</button>
+        <button class="tab-btn" onclick="switchTab('research')">Research</button>
+        <button class="tab-btn" onclick="switchTab('risk')">Risk</button>
+      </div>
+
+      <!-- Debate Tab -->
+      <div id="tab-debate" class="tab-pane active">
+        <div class="debate-judge-banner bull">
+          <div class="judge-title">Judge: Bull wins · 83% confidence</div>
+          <div class="judge-reasoning">The bull case presented significantly stronger quantitative evidence, particularly around Blackwell GPU demand and data center CAGR projections. The bear's valuation concerns, while valid, were counterbalanced by NVIDIA's demonstrated pricing power.</div>
+          <div class="judge-args">
+            <span>• Blackwell ramp-up and data center tailwinds outweigh valuation premium risk</span>
+            <span>• CUDA ecosystem moat not adequately addressed by bear case</span>
+          </div>
+        </div>
+        <div id="rounds-container"></div>
+      </div>
+
+      <!-- Research Tab -->
+      <div id="tab-research" class="tab-pane">
+        <div class="research-nav">
+          <button class="research-tab-btn active" onclick="switchResearch('fundamental')">Fundamental</button>
+          <button class="research-tab-btn" onclick="switchResearch('technical')">Technical</button>
+          <button class="research-tab-btn" onclick="switchResearch('sentiment')">Sentiment</button>
+          <button class="research-tab-btn" onclick="switchResearch('synthesis')">Synthesis</button>
+        </div>
+
+        <div id="research-fundamental" class="research-pane active">
+          <div class="signal-chips">
+            <span class="signal-chip amber">Overvalued</span>
+            <span class="signal-chip green">Strong Health</span>
+            <span class="signal-chip green">High Growth</span>
+          </div>
+          <div class="data-rows">
+            <div class="data-row"><span class="data-label">Confidence</span><span class="data-val">79%</span></div>
+            <div class="data-row"><span class="data-label">P/E (Trailing)</span><span class="data-val">68.4x</span></div>
+            <div class="data-row"><span class="data-label">P/E (Forward)</span><span class="data-val">38.2x</span></div>
+            <div class="data-row"><span class="data-label">Revenue Growth (YoY)</span><span class="data-val">+122%</span></div>
+            <div class="data-row"><span class="data-label">Gross Margin</span><span class="data-val">74.6%</span></div>
+            <div class="data-row"><span class="data-label">Debt / Equity</span><span class="data-val">0.41</span></div>
+            <div class="data-row"><span class="data-label">Free Cash Flow</span><span class="data-val">$33.7B TTM</span></div>
+            <div class="data-row"><span class="data-label">Key Strengths</span><span class="data-val">AI chip dominance, CUDA ecosystem, data center expansion</span></div>
+            <div class="data-row"><span class="data-label">Key Risks</span><span class="data-val">China export restrictions, AMD competition, valuation premium</span></div>
+            <div class="data-row"><span class="data-label">Summary</span><span class="data-val">NVDA trades at a premium but is justified by best-in-class AI GPU position and massive FCF generation. Strong balance sheet supports continued R&D investment.</span></div>
+          </div>
+        </div>
+
+        <div id="research-technical" class="research-pane">
+          <div class="signal-chips">
+            <span class="signal-chip green">Bullish Trend</span>
+            <span class="signal-chip green">Strong Momentum</span>
+          </div>
+          <div class="data-rows">
+            <div class="data-row"><span class="data-label">Current Price</span><span class="data-val">$134.72</span></div>
+            <div class="data-row"><span class="data-label">RSI (14)</span><span class="data-val">62.4 — neutral</span></div>
+            <div class="data-row"><span class="data-label">MACD</span><span class="data-val">Bullish crossover (hist: +1.82)</span></div>
+            <div class="data-row"><span class="data-label">EMA 20 / 50</span><span class="data-val">$131.50 / $124.10 — price above both</span></div>
+            <div class="data-row"><span class="data-label">Bollinger Position</span><span class="data-val">0.62 (mid-upper band)</span></div>
+            <div class="data-row"><span class="data-label">ATR (14)</span><span class="data-val">4.83</span></div>
+            <div class="data-row"><span class="data-label">Support</span><span class="data-val">$124.00</span></div>
+            <div class="data-row"><span class="data-label">Resistance</span><span class="data-val">$145.00</span></div>
+            <div class="data-row"><span class="data-label">Key Signals</span><span class="data-val">Golden cross confirmed, MACD bullish, RSI not overbought</span></div>
+            <div class="data-row"><span class="data-label">Summary</span><span class="data-val">Technically constructive setup. Golden cross confirmed with price holding above both EMAs. MACD histogram expanding bullishly. RSI leaves room to run.</span></div>
+          </div>
+        </div>
+
+        <div id="research-sentiment" class="research-pane">
+          <div class="signal-chips">
+            <span class="signal-chip green">Bullish</span>
+            <span class="signal-chip green">Score: +0.72</span>
+          </div>
+          <div class="data-rows">
+            <div class="data-row"><span class="data-label">News Sentiment</span><span class="data-val">Bullish</span></div>
+            <div class="data-row"><span class="data-label">Social Sentiment</span><span class="data-val">Very Bullish (avg Reddit score: 847)</span></div>
+            <div class="data-row"><span class="data-label">Key Themes</span><span class="data-val">AI infrastructure buildout, Blackwell GPU demand, sovereign AI spend</span></div>
+            <div class="data-row"><span class="data-label">Catalysts</span><span class="data-val">Q2 earnings (Aug 2025), GTC conference announcements, Blackwell ramp</span></div>
+            <div class="data-row"><span class="data-label">Summary</span><span class="data-val">Overwhelmingly positive narrative across news and social channels. Recurring theme is AI spend acceleration among hyperscalers with NVDA as primary beneficiary.</span></div>
+          </div>
+        </div>
+
+        <div id="research-synthesis" class="research-pane">
+          <div class="signal-chips">
+            <span class="signal-chip green">Buy Signal</span>
+            <span class="signal-chip neutral">Aligned</span>
+            <span class="signal-chip neutral">Data: High</span>
+          </div>
+          <div class="data-rows">
+            <div class="data-row"><span class="data-label">Bull Arguments</span><span class="data-val">AI supercycle intact, CUDA moat, Blackwell demand, $33B FCF, golden cross</span></div>
+            <div class="data-row"><span class="data-label">Bear Arguments</span><span class="data-val">68x PE, China headwinds, AMD MI300X gaining, insider selling</span></div>
+            <div class="data-row"><span class="data-label">Key Uncertainties</span><span class="data-val">China export policy trajectory, AMD competitive response timeline</span></div>
+            <div class="data-row"><span class="data-label">Weights (F/T/S)</span><span class="data-val">40% / 35% / 25%</span></div>
+            <div class="data-row"><span class="data-label">Investment Context</span><span class="data-val">All three signal streams align bullish. Fundamental premium is large but justified by growth trajectory. Technical momentum is constructive. Sentiment provides near-term catalyst visibility.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Risk Tab -->
+      <div id="tab-risk" class="tab-pane">
+        <div class="risk-gauge-wrap">
+          <div class="risk-gauge-top">
+            <span class="risk-gauge-label">Risk Level</span>
+            <span class="risk-level-text moderate">Moderate</span>
+          </div>
+          <div class="risk-bar-track"><div class="risk-bar-fill moderate"></div></div>
+          <div class="risk-scale"><span>Low</span><span>Moderate</span><span>High</span><span>Extreme</span></div>
+        </div>
+        <div class="risk-flags">
+          <div class="risk-flag-card ok">
+            <div class="risk-flag-icon">✓</div>
+            <div class="risk-flag-name">CVaR Flag</div>
+          </div>
+          <div class="risk-flag-card warn">
+            <div class="risk-flag-icon">!</div>
+            <div class="risk-flag-name">Vol Flag</div>
+          </div>
+          <div class="risk-flag-card ok">
+            <div class="risk-flag-icon">✓</div>
+            <div class="risk-flag-name">Risk Flag</div>
+          </div>
+        </div>
+        <div class="risk-section-title">Risk Factors</div>
+        <div class="risk-list">
+          <div class="risk-list-item"><span class="icon" style="color:#fb923c">▲</span>30-day volatility 2.1x sector (XLK) average — elevated relative to peers</div>
+          <div class="risk-list-item"><span class="icon" style="color:#fb923c">▲</span>China export restrictions could reduce TAM by ~$4–6B annually</div>
+          <div class="risk-list-item"><span class="icon" style="color:#fb923c">▲</span>High valuation multiple creates significant drawdown risk on guidance miss</div>
+        </div>
+        <div class="risk-section-title">Mitigations</div>
+        <div class="risk-list">
+          <div class="risk-list-item"><span class="icon" style="color:var(--green)">→</span>CVaR (95%) of -1.8% is within acceptable threshold — tail risk manageable</div>
+          <div class="risk-list-item"><span class="icon" style="color:var(--green)">→</span>Strong FCF provides balance sheet buffer against macro headwinds</div>
+          <div class="risk-list-item"><span class="icon" style="color:var(--green)">→</span>Use staged entry to reduce average cost vs single lump-sum</div>
+        </div>
+        <div class="risk-position-box"><strong>Position size:</strong> 3–5% of portfolio maximum given elevated vol. Consider staged entry over 2–3 tranches.</div>
+        <p class="risk-summary-text">CVaR at 95% confidence is -1.8% daily, within acceptable limits. The primary risk vector is valuation compression on guidance miss, amplified by the high beta of 1.74. Overall risk is moderate — proceed with position sizing discipline.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ HISTORY PAGE ════════════════════ -->
+<div id="page-history" class="page">
+  <div class="page-inner">
+    <div class="page-title">Decision History</div>
+    <div class="hist-table-wrap">
+      <table class="hist-table">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Action</th>
+            <th>Confidence</th>
+            <th>Debate Winner</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="hist-ticker" onclick="startAnalysis('NVDA')">NVDA</span></td>
+            <td><span class="action-badge BUY">BUY</span></td>
+            <td class="hist-muted">87%</td>
+            <td class="hist-muted">bull</td>
+            <td class="hist-muted">2025-05-15</td>
+          </tr>
+          <tr>
+            <td><span class="hist-ticker" onclick="startAnalysis('AAPL')">AAPL</span></td>
+            <td><span class="action-badge HOLD">HOLD</span></td>
+            <td class="hist-muted">61%</td>
+            <td class="hist-muted">draw</td>
+            <td class="hist-muted">2025-05-14</td>
+          </tr>
+          <tr>
+            <td><span class="hist-ticker" onclick="startAnalysis('TSLA')">TSLA</span></td>
+            <td><span class="action-badge SELL">SELL</span></td>
+            <td class="hist-muted">74%</td>
+            <td class="hist-muted">bear</td>
+            <td class="hist-muted">2025-05-13</td>
+          </tr>
+          <tr>
+            <td><span class="hist-ticker" onclick="startAnalysis('MSFT')">MSFT</span></td>
+            <td><span class="action-badge BUY">BUY</span></td>
+            <td class="hist-muted">82%</td>
+            <td class="hist-muted">bull</td>
+            <td class="hist-muted">2025-05-12</td>
+          </tr>
+          <tr>
+            <td><span class="hist-ticker" onclick="startAnalysis('AMZN')">AMZN</span></td>
+            <td><span class="action-badge BUY">BUY</span></td>
+            <td class="hist-muted">78%</td>
+            <td class="hist-muted">bull</td>
+            <td class="hist-muted">2025-05-11</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ MEMORY PAGE ════════════════════ -->
+<div id="page-memory" class="page">
+  <div class="page-inner">
+    <div class="page-title">System Memory</div>
+    <p class="memory-sub">Investment beliefs extracted via CVRF (Conceptual Verbal Reinforcement) from past decision cycles.</p>
+
+    <div class="belief-card">
+      <div class="belief-top">
+        <span class="belief-text">★ Technical momentum signals are more predictive than RSI alone for high-beta AI/semiconductor stocks — prioritize MACD histogram direction and EMA crossover confirmation.</span>
+        <span class="belief-ticker-badge">NVDA</span>
+      </div>
+      <div class="belief-meta">
+        <span class="belief-agent-tag">technical</span>
+        <span class="belief-agent-tag">fundamental</span>
+        <span class="belief-date">2025-05-15</span>
+      </div>
+    </div>
+
+    <div class="belief-card">
+      <div class="belief-top">
+        <span class="belief-text">★ Debate confidence below 0.70 is a reliable signal of conflicted signals — default to HOLD unless risk manager explicitly clears the position.</span>
+        <span class="belief-ticker-badge">AAPL</span>
+      </div>
+      <div class="belief-meta">
+        <span class="belief-agent-tag">all</span>
+        <span class="belief-date">2025-05-14</span>
+      </div>
+    </div>
+
+    <div class="belief-card">
+      <div class="belief-top">
+        <span class="belief-text">★ Reddit sentiment score above 500 average is a leading indicator of near-term upward price pressure for mega-cap tech; incorporate as +1 bullish tiebreaker in ambiguous debates.</span>
+        <span class="belief-ticker-badge">MSFT</span>
+      </div>
+      <div class="belief-meta">
+        <span class="belief-agent-tag">sentiment</span>
+        <span class="belief-date">2025-05-12</span>
+      </div>
+    </div>
+
+    <div class="belief-card">
+      <div class="belief-top">
+        <span class="belief-text">★ For growth stocks with P/E above 50x, weight sentiment and technical signals higher (60%) relative to fundamental valuation signals — DCF accuracy degrades at extreme multiples.</span>
+        <span class="belief-ticker-badge">TSLA</span>
+      </div>
+      <div class="belief-meta">
+        <span class="belief-agent-tag">fundamental</span>
+        <span class="belief-agent-tag">synthesizer</span>
+        <span class="belief-date">2025-05-13</span>
+      </div>
+    </div>
+
+    <div class="belief-card">
+      <div class="belief-top">
+        <span class="belief-text">★ CVaR flags triggered simultaneously with volatility ratio above 2x should always reduce position size suggestion to 2% maximum, regardless of debate outcome confidence.</span>
+        <span class="belief-ticker-badge">global</span>
+      </div>
+      <div class="belief-meta">
+        <span class="belief-agent-tag">risk</span>
+        <span class="belief-date">2025-05-11</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SYNTHETIC DATA ──────────────────────────────────────────────────────────
+const SYNTH = {
+  NVDA: {
+    action: 'BUY', confidence: 0.87, horizon: 'Long term', target: '$160–185 / 12 mo',
+    explanation: 'NVIDIA demonstrates exceptional fundamentals underpinned by the ongoing AI infrastructure supercycle. The Blackwell GPU platform is ramping strongly with hyperscaler demand continuing to outpace supply. Technical setup is constructive with a confirmed golden cross and MACD bullish crossover. Despite a premium valuation, the risk/reward remains favorable given NVIDIA\'s unmatched CUDA ecosystem moat and $33.7B in trailing free cash flow.',
+    reasons: [
+      'Blackwell GPU ramp — hyperscaler demand 2–3x estimates',
+      'CUDA ecosystem moat with 10+ year software advantage',
+      'Revenue growth +122% YoY with expanding gross margins',
+    ],
+    risks: [
+      'China export restrictions could reduce TAM $4–6B annually',
+      '68x P/E creates significant downside on guidance miss',
+    ],
+  },
+  AAPL: {
+    action: 'HOLD', confidence: 0.61, horizon: 'Medium term', target: '$195–210 / 12 mo',
+    explanation: 'Apple presents a balanced risk/reward with limited near-term catalysts offset by durable ecosystem stickiness. The debate was inconclusive — bull arguments centered on Apple Intelligence monetization while bear case highlighted iPhone saturation in mature markets. Risk is moderate with low CVaR. Hold pending clearer evidence of AI feature adoption driving upgrade cycles.',
+    reasons: ['Unmatched brand loyalty and services revenue growth', 'Apple Intelligence potential upgrade cycle catalyst'],
+    risks: ['iPhone unit growth plateauing in core markets', 'China market share erosion to Huawei'],
+  },
+  TSLA: {
+    action: 'SELL', confidence: 0.74, horizon: 'Short term', target: '$195–215 / 6 mo',
+    explanation: 'Tesla\'s fundamental deterioration — with declining margins, eroding market share to BYD and legacy OEMs, and an overstretched valuation — outweighs near-term FSD/Robotaxi optionality. The bear case convincingly dismantled the bull\'s AI premium thesis given lack of monetizable near-term revenue from autonomous driving. Risk manager flagged elevated CVaR and volatility.',
+    reasons: ['Gross automotive margins compressed to 14.6%', 'Market share loss in EU and China accelerating'],
+    risks: ['FSD/Robotaxi approval could be a significant positive catalyst', 'Elon Musk effect — retail sentiment can override fundamentals'],
+  },
+  MSFT: {
+    action: 'BUY', confidence: 0.82, horizon: 'Long term', target: '$470–510 / 12 mo',
+    explanation: 'Microsoft\'s Copilot integration across Office 365 and Azure AI services positions it uniquely to monetize enterprise AI adoption. Strong fundamental backing with 20%+ Azure growth, high free cash flow, and a disciplined capital allocation strategy. Technical trend is firmly bullish with limited overhead resistance.',
+    reasons: ['Azure AI growing 29% YoY — enterprise AI adoption accelerating', 'Copilot seat expansion driving ARPU growth in Office 365'],
+    risks: ['OpenAI dependency and partnership risk', 'Antitrust scrutiny on AI bundling practices'],
+  },
+  AMZN: {
+    action: 'BUY', confidence: 0.78, horizon: 'Long term', target: '$230–260 / 12 mo',
+    explanation: 'Amazon\'s AWS profitability expansion combined with a recovering retail segment creates a compelling multi-year earnings story. The bear case on margin compression was effectively countered by demonstrated operating leverage at AWS and advertising segment growth. Risk is moderate.',
+    reasons: ['AWS re-acceleration to 17% growth led by AI workloads', 'Advertising segment now a $50B+ business with high margins'],
+    risks: ['Regulatory risk across retail and cloud businesses', 'Heavy capex cycle may pressure FCF near-term'],
+  },
+};
+
+const ROUNDS = [
+  {
+    label: 'Round 1 — Opening',
+    bull: `THESIS: NVIDIA is the definitive infrastructure pick for the AI supercycle with a multi-year demand runway that the market is still underpricing.
+
+EVIDENCE:
+• Blackwell GPU orders already booked 12+ months out — hyperscalers (Microsoft, Google, Meta, Amazon) have committed $150B+ in AI capex for 2025
+• CUDA software ecosystem represents a 10+ year moat — 4M+ developers cannot be easily migrated to AMD or Intel toolchains
+• Gross margins expanding to 74.6% — pricing power evidence that no competitor can match on performance-per-watt
+• Data center revenue grew 427% YoY in last earnings — not cyclical, secular
+
+CATALYST: Blackwell ramp entering full production in Q3 2025 will drive estimate revisions upward. Consensus still underestimates sovereign AI demand (UAE, Saudi Arabia, India all announced $100B+ AI spend).
+
+COUNTERPOINT ANTICIPATION: Bears will cite the 68x P/E as unsustainable. But NVIDIA is not a traditional semiconductor company — it is an AI infrastructure platform. The correct comp is AWS in 2015, not Intel in 2023.`,
+    bear: `THESIS: NVIDIA's current valuation prices in a perfect execution scenario across multiple uncertain variables, creating an asymmetric downside risk.
+
+EVIDENCE:
+• 68x trailing P/E and 35x forward P/E — even in the best-case scenario, you are paying for 5 years of perfect growth with zero margin for error
+• AMD MI300X has achieved parity on inference workloads at 20% lower cost — hyperscalers are actively qualifying AMD to reduce NVDA dependency
+• China export restrictions have already removed ~$5B in annual revenue — further tightening is a binary downside risk
+• Jensen Huang sold $700M in stock over the past 12 months — insider selling at scale sends a clear signal
+
+DOWNSIDE SCENARIO: Any guidance miss — even by 5% — could trigger a 25–35% multiple compression. At current valuations, the stock already prices in flawless execution through 2027.
+
+COUNTERPOINT ANTICIPATION: Bulls will cite CUDA moat. But CUDA lock-in affects inference deployment teams, not procurement decisions. CFOs at Microsoft and Meta are actively funding AMD to create pricing leverage.`,
+  },
+  {
+    label: 'Round 2 — Rebuttals',
+    bull: `REBUTTAL OF BEAR CASE:
+
+1. On AMD competition: MI300X parity on inference is a narrow claim that ignores training workloads where H100/H200/B100 have 3-4x throughput advantage. 85% of AI infrastructure spend is on training, not inference. AMD is a rounding error in training clusters.
+
+2. On China restrictions: NVDA developed China-specific chips (H20, L20) that maintain meaningful revenue. The bear is treating a known, already-priced-in headwind as a new thesis.
+
+3. On insider selling: Jensen Huang has also donated billions to Stanford and has predetermined selling plans. This is noise, not signal.
+
+4. On valuation: Amazon traded at 100x earnings in 2015 when it was "just a retailer." The market was wrong. Applying static P/E multiples to platform businesses in hyper-growth phases is a category error.
+
+REINFORCED BULL CASE: The demand signal from every hyperscaler CFO call in Q1 2025 was unambiguous — GPU allocation is the binding constraint on AI development. NVIDIA has pricing power because there is no substitute.`,
+    bear: `REBUTTAL OF BULL CASE:
+
+1. On training dominance: Training workloads are shifting to inference at scale — GPT-4 level models are trained; the next wave is deployment. The inference market is where the $100B+ opportunity lives, and that's exactly where AMD is competitive.
+
+2. On H20 China chips: H20 revenue is ~$4B/year, down from $12B pre-restrictions. The bear case was never "China goes to zero" — it was that China is a permanently diminished market that the bull ignored.
+
+3. On Amazon analogy: Amazon in 2015 had a clear path to monetizing AWS. NVIDIA's path to monetizing its software ecosystem (CUDA AI Enterprise) is nascent — current revenue is still 95% hardware. The moat hasn't been monetized.
+
+4. On demand: Hyperscaler capex cycles are notoriously lumpy. Microsoft and Meta both guided down capex growth rates. A 10% deceleration in AI capex across 4 hyperscalers is a $15B revenue miss for NVIDIA.
+
+REINFORCED BEAR CASE: The risk is not that NVIDIA fails — it's that expectations are so elevated that even strong performance disappoints.`,
+  },
+  {
+    label: 'Deliberation',
+    bull: `FINAL BULL POSITION (post full debate review):
+
+I concede two valid bear points:
+1. The valuation multiple is genuinely stretched and requires continued flawless execution
+2. China revenue being permanently impaired is a real structural headwind, not a one-time event
+
+However, I maintain strong conviction on three points that the bear case failed to adequately address:
+1. Training workload dominance — the next generation of foundation models (GPT-5, Gemini 3, Llama 4) still require massive NVIDIA-only training clusters
+2. Sovereign AI demand was not in consensus estimates when this analysis began — this is an incremental $20–30B TAM expansion
+3. Blackwell yield and supply dynamics are now well-understood; the execution risk has substantially de-risked
+
+FINAL CONVICTION: HIGH. The risk/reward is asymmetric to the upside over a 12–18 month horizon. Target entry on any pullback to $125–130.`,
+    bear: `FINAL BEAR POSITION (post full debate review):
+
+I concede the following bull points are stronger than I initially weighted:
+1. Training workload dominance is real and AMD has not meaningfully penetrated this segment
+2. Sovereign AI demand (Middle East, India, Southeast Asia) was underappreciated in my initial thesis
+
+However, I maintain my core concern: The margin of safety is zero at current prices. My bear thesis is not that NVIDIA is a bad company — it's that at $135, you are not being compensated for the risks you are taking.
+
+FINAL CONVICTION: MEDIUM. I would be more comfortable at $100–110 (30x forward earnings) which would price in a normal deceleration cycle. At current prices, I rate the risk/reward as unattractive.
+
+NOTE: If the macro environment remains supportive and Q2 earnings print above consensus, my bear case loses significant force.`,
+  },
+];
+
+// ── TIMELINE STEPS with timing ──────────────────────────────────────────────
+const STEPS = [
+  { id: 'supervisor',    delay: 400,  summary: 'Memory loaded — 3 past decisions, 2 beliefs injected' },
+  { id: 'fundamental',   delay: 900,  summary: 'Overvalued · High growth · Strong health' },
+  { id: 'technical',     delay: 900,  summary: 'Trend: bullish · MACD crossover · Golden cross' },
+  { id: 'sentiment',     delay: 900,  summary: 'Bullish · Score +0.72 · Blackwell demand theme' },
+  { id: 'synthesizer',   delay: 1400, summary: 'Signal: Buy · Aligned · Data quality: High' },
+  { id: 'bull_round1',   delay: 2200, summary: 'CUDA moat, Blackwell ramp, sovereign AI demand…' },
+  { id: 'bear_round1',   delay: 2200, summary: '68x PE, China headwinds, AMD MI300X parity…' },
+  { id: 'bull_rebuttal', delay: 2800, summary: 'Training dominance, CUDA lock-in rebutted AMD claim…' },
+  { id: 'bear_rebuttal', delay: 2800, summary: 'Inference shift, hyperscaler capex decel risk…' },
+  { id: 'deliberation',  delay: 3400, summary: 'Bull concedes China; Bear concedes training dominance' },
+  { id: 'debate_judge',  delay: 4000, summary: 'Bull wins · confidence 0.83' },
+  { id: 'risk_manager',  delay: 4600, summary: 'Moderate risk · Vol flag · CVaR within threshold' },
+  { id: 'final_decision',delay: 5200, summary: 'BUY · 87% confidence · Long term' },
+  { id: 'reflection',    delay: 5800, summary: '2 new beliefs extracted and stored' },
+];
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let currentTicker = 'NVDA';
+
+// ── PAGE NAV ─────────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelector(`.nav-link[onclick="showPage('${name}')"]`).classList.add('active');
+}
+
+// ── START ANALYSIS ────────────────────────────────────────────────────────────
+function startAnalysis(ticker) {
+  ticker = ticker.trim().toUpperCase();
+  if (!ticker) return;
+  currentTicker = ticker;
+
+  // Reset timeline nodes
+  document.querySelectorAll('.tnode').forEach(n => {
+    n.className = 'tnode';
+    const sum = n.querySelector('.tnode-summary');
+    if (sum) sum.remove();
+  });
+
+  // Reset verdict + tabs
+  const vc = document.getElementById('verdict-card');
+  vc.className = '';
+  vc.style.display = 'none';
+  document.getElementById('detail-tabs').className = 'tabs-wrap';
+
+  // Set header
+  document.getElementById('analyze-ticker').textContent = ticker;
+  document.getElementById('analyze-status').textContent = 'Analysis in progress…';
+  document.getElementById('running-pill').style.display = 'flex';
+
+  showPage('analyze');
+
+  // Get data (use NVDA synth for any ticker in demo)
+  const data = SYNTH[ticker] || SYNTH['NVDA'];
+
+  // Animate timeline
+  let cumulative = 0;
+  let runningSet = new Set();
+
+  STEPS.forEach((step, i) => {
+    // Mark running
+    setTimeout(() => {
+      const node = document.getElementById('tnode-' + step.id);
+      if (node) {
+        node.className = 'tnode running';
+        runningSet.add(step.id);
+      }
+    }, cumulative);
+
+    cumulative += step.delay;
+
+    // Mark done
+    setTimeout(() => {
+      const node = document.getElementById('tnode-' + step.id);
+      if (node) {
+        node.className = 'tnode done';
+        let sum = node.querySelector('.tnode-summary');
+        if (!sum) {
+          sum = document.createElement('div');
+          sum.className = 'tnode-summary';
+          node.appendChild(sum);
+        }
+        sum.textContent = step.summary;
+        runningSet.delete(step.id);
+      }
+
+      // Last step — show verdict
+      if (i === STEPS.length - 1) {
+        showVerdict(ticker, data);
+      }
+    }, cumulative);
+  });
+}
+
+function showVerdict(ticker, data) {
+  document.getElementById('running-pill').style.display = 'none';
+  document.getElementById('analyze-status').textContent = 'Analysis complete';
+
+  const vc = document.getElementById('verdict-card');
+  vc.className = data.action;
+  vc.style.display = 'block';
+
+  document.getElementById('vc-action').textContent = data.action;
+  document.getElementById('vc-conf').textContent = Math.round(data.confidence * 100) + '%';
+  document.getElementById('vc-ticker').textContent = ticker;
+  document.getElementById('vc-horizon').textContent = data.horizon;
+  document.getElementById('vc-target').textContent = 'Target: ' + data.target;
+  document.getElementById('vc-explanation').textContent = data.explanation;
+
+  const reasonsEl = document.getElementById('vc-reasons');
+  reasonsEl.innerHTML = data.reasons.map(r => `<li>${r}</li>`).join('');
+  const risksEl = document.getElementById('vc-risks');
+  risksEl.innerHTML = data.risks.map(r => `<li>${r}</li>`).join('');
+
+  // Animate confidence bar
+  setTimeout(() => {
+    document.getElementById('vc-bar').style.width = Math.round(data.confidence * 100) + '%';
+  }, 100);
+
+  // Build debate rounds
+  const container = document.getElementById('rounds-container');
+  container.innerHTML = ROUNDS.map((round, i) => `
+    <div class="round-block">
+      <div class="round-header" onclick="toggleRound(${i})">
+        ${round.label}
+        <span class="round-chevron" id="chev-${i}">▼</span>
+      </div>
+      <div class="round-body ${i === 0 ? 'open' : ''}" id="round-${i}">
+        <div class="round-col">
+          <div class="round-col-title bull-title">Bull</div>
+          <p>${round.bull}</p>
+        </div>
+        <div class="round-col">
+          <div class="round-col-title bear-title">Bear</div>
+          <p>${round.bear}</p>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Show tabs
+  document.getElementById('detail-tabs').className = 'tabs-wrap show';
+}
+
+function toggleRound(i) {
+  const body = document.getElementById('round-' + i);
+  const chev = document.getElementById('chev-' + i);
+  const open = body.classList.toggle('open');
+  chev.textContent = open ? '▲' : '▼';
+}
+
+// ── TAB SWITCHING ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tabs-nav .tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tabs-nav .tab-btn[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function switchResearch(name) {
+  document.querySelectorAll('.research-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.research-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.research-tab-btn[onclick="switchResearch('${name}')"]`).classList.add('active');
+  document.getElementById('research-' + name).classList.add('active');
+}
+</script>
+</body>
+</html>
