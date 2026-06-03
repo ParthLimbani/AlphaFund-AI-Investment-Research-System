@@ -126,7 +126,7 @@ This project synthesises three papers into a single architecture:
 | **Benchmarking Multi-Agent LLM Architectures for Financial Document Processing** (2024) | Hierarchical beats sequential/parallel/reflexive on accuracy–cost balance; Pydantic validation gates with single retry + confidence penalty to prevent cascading errors |
 | **D3: Deliberative Discussion and Decision** (2024) | Structured debate with opening arguments, rebuttals, and cost-aware winner determination in one call — measurably reduces variance vs single-pass evaluation |
 
-Full architecture notes, state schema, and build phases: [`docs/PLAN.md`](docs/PLAN.md)
+Full architecture notes and state schema are in `docs/PLAN.md` (internal, not included in the public repo).
 
 ---
 
@@ -240,8 +240,7 @@ AI_Hedge_Fund/
 │   └── components/                # AgentTimeline · VerdictCard · DebateView · ResearchTabs · RiskMeter
 ├── main.py                        # CLI entrypoint
 ├── requirements.txt
-├── .env.example
-└── docs/PLAN.md
+└── .env.example
 ```
 
 ---

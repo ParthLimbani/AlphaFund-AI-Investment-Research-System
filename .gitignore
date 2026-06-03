@@ -16,10 +16,11 @@ secrets/
 .claude/
 
 # =============================================================================
-# Research papers
+# Research papers & internal docs
 # =============================================================================
 ResearchPapers/
 *.pdf
+docs/
 
 # =============================================================================
 # Local data (databases, vector store, SEC filings cache)
