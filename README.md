@@ -31,7 +31,6 @@
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Token Budget](#token-budget)
-- [Deploy vs Open-Source](#deploy-vs-open-source)
 - [License](#license)
 
 ---
@@ -254,26 +253,6 @@ Optimised to stay within Groq's free-tier limits. Per-role `max_tokens` caps and
 | `llama-3.1-8b-instant` | Fundamental, Technical, Sentiment, Debate, Reflection | 5 | ~5,000 | 500,000 |
 | `llama-3.3-70b-versatile` | Synthesizer, Risk Manager, Final Decision | 3 | ~2,200 | 100,000 |
 | **Total** | | **8** | **~7,200** | |
-
----
-
-## Deploy vs Open-Source
-
-**Recommendation: keep this open-source and run it locally with your own keys.**
-
-Deployment has hard technical blockers at the free tier:
-
-| Blocker | Detail |
-|---------|--------|
-| Shared API quota | Groq free tier is per-account, not per-user. At ~7,200 tokens/run, the 70B daily limit (100K tokens) supports roughly 13 full runs before it resets — one busy hour exhausts it for everyone. |
-| No multi-user isolation | The in-memory session store and local ChromaDB / SQLite are single-process by design. Multi-user support requires an auth layer, per-user databases, and a job queue — a significant rewrite. |
-| Data source rate limits | NewsAPI free tier caps at 100 requests/day. SEC EDGAR enforces request limits that break under concurrent traffic. |
-| No serverless option | FastAPI + LangGraph requires a persistent process. It cannot run on Vercel or Netlify. A dedicated server adds ongoing cost. |
-| Legal exposure | Hosting a live BUY / SELL / HOLD system introduces regulatory ambiguity even with disclaimers. Open-source shifts responsibility to each user who chooses to run it. |
-
-Each user who clones the repo brings their own free Groq and NewsAPI keys — their quota is fully independent. The architecture, agent design, memory system, and CVRF belief learning are the valuable artifacts, not the hosted service.
-
-If a public demo becomes necessary, the right approach is to pre-compute a set of cached analyses and serve those statically — never route live user queries through a shared API key.
 
 ---
 
